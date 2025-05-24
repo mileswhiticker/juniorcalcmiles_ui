@@ -1,0 +1,31 @@
+﻿@page "/calc"
+@rendermode InteractiveServer
+
+<PageTitle>Calculator</PageTitle>
+
+<h1>Calculator</h1>
+
+<p role="status">Current count: @payload</p>
+
+<button class="btn btn-primary" @onclick="GetExampleAsync">Click me</button>
+
+@code {
+    private string payload = "NA";
+    private int count = 0;
+
+    public void onclick()
+    {
+        payload = "NA" + count;
+        count++;
+    }
+
+    public async void GetExampleAsync()
+    {
+        using var client = new HttpClient();
+        var response = await client.GetAsync("https://api.example.com/data");
+        response.EnsureSuccessStatusCode();
+
+        string result = await response.Content.ReadAsStringAsync();
+        payload = result;
+    }
+}
