@@ -13,9 +13,11 @@
 
 @code {
 
-	public async Task LogToConsole(string message)
+	public class OperationRequest
 	{
-		await JS.InvokeVoidAsync("console.log", message);
+		public int request_id { get; set; }
+		public string operation_id { get; set; }
+		public int[] values { get; set; }
 	}
 
 	private string operation_response = "NA";
@@ -27,25 +29,30 @@
 		BaseAddress = new Uri("http://localhost:5086/"),
 	};
 
-	public async void onclickcalculator()
+	public async Task onclickcalculator()
 	{
-		await FetchOperationResponse();
 		request_id++;
-	}
 
-	public async Task FetchOperationResponse()
-	{
+		Random random = new Random();
+		string[] operations = ["add","subtract","multiply","divide"];
+
 		//what are we requesting from the api?
-		var json = "{\"request_id\":" + request_id + "}";
+		OperationRequest request_obj = new OperationRequest {
+			request_id = request_id,
+			operation_id = operations[random.Next(0,4)],
+			values = [random.Next(1, 9), random.Next(1, 9)]
+		};
+		//var json = "{\"request_id\":" + request_id + "}";
+		var json = System.Text.Json.JsonSerializer.Serialize(request_obj);
 		var request_content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
-		//await JS.InvokeVoidAsync("console.log", "request_content: " + json);
+		await JS.InvokeVoidAsync("console.log", "request: " + json);
 
 		HttpResponseMessage response = await sharedClient.PostAsync(sharedClient.BaseAddress + "calculator/", request_content);
 
 		if (response.IsSuccessStatusCode)
 		{
 			string body = await response.Content.ReadAsStringAsync();
-			await JS.InvokeVoidAsync("console.log", body);
+			await JS.InvokeVoidAsync("console.log", "response: " + body);
 			operation_response = body;
 
 			//force blazor to re-render the client so it doesnt lag behind in responses
