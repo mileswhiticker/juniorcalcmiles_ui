@@ -1,10 +1,15 @@
 ﻿@page "/calc"
 @rendermode InteractiveServer
 @inject IJSRuntime JS
+@using System.Xml.Serialization;
 
 <PageTitle>Calculator</PageTitle>
 
 <h1>Calculator</h1>
+
+<input type="checkbox" @bind="isXml"> Use XML instead of JSON?
+<br />
+<br />
 
 <button class="btn btn-primary" @onclick="onclickrandom">Fetch random calculator operation</button>
 <br />
@@ -21,6 +26,7 @@
 	private int request_id = 0;
 	private string inputEquation = "";
 	private Random random = new Random();
+	private bool isXml = false;
 
 	public class OperationRequest
 	{
@@ -130,15 +136,38 @@
 		await PostRequest(request_obj);
 	}
 
+	public string SerializeToXml<T>(T obj)
+	{
+		var xmlSerializer = new XmlSerializer(typeof(T));
+		using (var stringWriter = new StringWriter())
+		{
+			xmlSerializer.Serialize(stringWriter, obj);
+			return stringWriter.ToString();
+		}
+	}
+
 	public async Task PostRequest(OperationRequest request_obj)
 	{
 		request_id++;
 
-		var json = System.Text.Json.JsonSerializer.Serialize(request_obj);
-		var request_content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
-		await JS.InvokeVoidAsync("console.log", "request: " + json);
+		StringContent request_content;
+		string endpoint_url = sharedClient.BaseAddress + "calculator/";
+		if (isXml)
+		{
+			var xml = SerializeToXml(request_obj);
+			await JS.InvokeVoidAsync("console.log", "xml request: " + xml);
 
-		HttpResponseMessage response = await sharedClient.PostAsync(sharedClient.BaseAddress + "calculator/", request_content);
+			request_content = new StringContent(xml, System.Text.Encoding.Unicode, "application/xml");
+		}
+		else
+		{
+			var json = System.Text.Json.JsonSerializer.Serialize(request_obj);
+			await JS.InvokeVoidAsync("console.log", "json request: " + json);
+
+			request_content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+		}
+
+		HttpResponseMessage response = await sharedClient.PostAsync(endpoint_url, request_content);
 
 		if (response.IsSuccessStatusCode)
 		{
