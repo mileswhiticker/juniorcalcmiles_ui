@@ -6,22 +6,34 @@
 
 <h1>Calculator</h1>
 
-<button class="btn btn-primary" @onclick="onclickcalculator">Fetch calculator operation</button>
-
-<p role="status"><em>Current operation:</em></p>
-<p>@operation_response</p>
+<button class="btn btn-primary" @onclick="onclickrandom">Fetch random calculator operation</button>
+<br />
+<br />
+<p><em>Random result:</em> @response_random</p>
+<input class="text" @bind="inputEquation" placeholder="Enter equation here">
+<button class="btn btn-primary" @onclick="onclickresponse">Fetch answer</button>
+<p><em>Answer:</em> @response_user</p>
 
 @code {
+
+	private string response_random = "";
+	private string response_user = "";
+	private int request_id = 0;
+	private string inputEquation = "";
+	private Random random = new Random();
 
 	public class OperationRequest
 	{
 		public int request_id { get; set; }
-		public string operation_id { get; set; }
-		public int[] values { get; set; }
+		public Operation rootOperation { get; set; }
 	}
 
-	private string operation_response = "NA";
-	private int request_id = 0;
+	public class Operation
+	{
+		public string operation_id { get; set; }
+		public float[] values { get; set; }
+		public Operation[] children { get; set; }
+	}
 
 	private static HttpClient sharedClient = new()
 	{
@@ -29,20 +41,99 @@
 		BaseAddress = new Uri("http://localhost:5086/"),
 	};
 
-	public async Task onclickcalculator()
+	public async Task onclickresponse()
 	{
-		request_id++;
+		if (inputEquation != "")
+		{
+			await JS.InvokeVoidAsync("console.log", "inputEquation: " + inputEquation);
+		}
 
+		//loop over the characters and parse them all
+		string outstring = "";
+		string curNum = "";
+		bool error = false;
+		string unknownChar = "";
+		for (int i = 0; i < inputEquation.Length;i++)
+		{
+			// outstring += inputEquation[i] + " ";
+			string character = "" + inputEquation[i];
+
+			//is this a number?
+			bool isNumber = float.TryParse(character, out float result);
+			if (isNumber)
+			{
+				curNum += character;
+			}
+			else
+			{
+				//is this an operator?
+				switch (character)
+				{
+					case "+":
+						{
+							break;
+						}
+					case "-":
+						{
+							break;
+						}
+					case "*":
+						{
+							break;
+						}
+					case "/":
+						{
+							break;
+						}
+					default:
+						{
+							unknownChar = character;
+							error = true;
+							break;
+						}
+				}
+			}
+
+			if (error)
+			{
+				response_user = "Error: unknown character \"" + unknownChar + "\"";
+				break;
+			}
+		}
+
+		if (!error && inputEquation != "")
+		{
+			response_user = "Success " + random.Next();
+		}
+		// await JS.InvokeVoidAsync("console.log", "outstring: " + outstring);
+
+		//reset the input text field
+		inputEquation = "";
+	}
+
+	public async Task onclickrandom()
+	{
 		Random random = new Random();
-		string[] operations = ["add","subtract","multiply","divide"];
+		string[] operations = ["add","subtract","multiply","divide","exp","nthroot"];
 
 		//what are we requesting from the api?
 		OperationRequest request_obj = new OperationRequest {
 			request_id = request_id,
-			operation_id = operations[random.Next(0,4)],
-			values = [random.Next(1, 9), random.Next(1, 9)]
+			rootOperation = new Operation
+			{
+				operation_id = operations[random.Next(0, 4)],
+				values = [random.Next(1, 9), random.Next(1, 9)],
+				children = []
+			}
 		};
-		//var json = "{\"request_id\":" + request_id + "}";
+
+		await PostRequest(request_obj);
+	}
+
+	public async Task PostRequest(OperationRequest request_obj)
+	{
+		request_id++;
+
 		var json = System.Text.Json.JsonSerializer.Serialize(request_obj);
 		var request_content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
 		await JS.InvokeVoidAsync("console.log", "request: " + json);
@@ -53,7 +144,7 @@
 		{
 			string body = await response.Content.ReadAsStringAsync();
 			await JS.InvokeVoidAsync("console.log", "response: " + body);
-			operation_response = body;
+			response_random = body;
 
 			//force blazor to re-render the client so it doesnt lag behind in responses
 			StateHasChanged();
