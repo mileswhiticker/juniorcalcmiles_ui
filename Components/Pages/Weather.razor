@@ -1,5 +1,7 @@
 ﻿@page "/weather"
+@rendermode InteractiveServer
 @attribute [StreamRendering]
+@inject IJSRuntime JS
 
 <PageTitle>Weather</PageTitle>
 
@@ -36,7 +38,45 @@ else
     </table>
 }
 
+<br />
+<button class="btn btn-primary" @onclick="onclickweatherforecast">Fetch weather forecast from API</button>
+
+<p role="status"><em>Current request ID:</em> @request_id</p>
+<p role="status"><em>Current forecast:</em></p>
+<p>@forecast_response</p>
+
 @code {
+
+	private int request_id = 0;
+	private string forecast_response = "NA";
+
+    private static HttpClient sharedClient = new()
+    {
+        //BaseAddress = new Uri("http://13.236.88.18/calcserve/"),
+        BaseAddress = new Uri("http://localhost:5086/"),
+    };
+
+    public async void onclickweatherforecast()
+    {
+        await JS.InvokeVoidAsync("console.log", "onclickweatherforecast()");
+        request_id++;
+
+        HttpResponseMessage response = await sharedClient.GetAsync(sharedClient.BaseAddress + "weatherforecast/");
+
+        if (response.IsSuccessStatusCode)
+        {
+            forecast_response = await response.Content.ReadAsStringAsync();
+            await JS.InvokeVoidAsync("console.log", forecast_response);
+
+            //force blazor to re-render the client so it doesnt lag behind in responses
+            StateHasChanged();
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("console.error", response);
+        }
+    }
+
     private WeatherForecast[]? forecasts;
 
     protected override async Task OnInitializedAsync()
