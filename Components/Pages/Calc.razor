@@ -1,31 +1,59 @@
 ﻿@page "/calc"
 @rendermode InteractiveServer
+@inject IJSRuntime JS
 
 <PageTitle>Calculator</PageTitle>
 
 <h1>Calculator</h1>
 
-<p role="status">Current count: @payload</p>
+<button class="btn btn-primary" @onclick="onclickcalculator">Fetch calculator operation</button>
 
-<button class="btn btn-primary" @onclick="GetExampleAsync">Click me</button>
+<p role="status"><em>Current operation:</em></p>
+<p>@operation_response</p>
 
 @code {
-    private string payload = "NA";
-    private int count = 0;
 
-    public void onclick()
-    {
-        payload = "NA" + count;
-        count++;
-    }
+	public async Task LogToConsole(string message)
+	{
+		await JS.InvokeVoidAsync("console.log", message);
+	}
 
-    public async void GetExampleAsync()
-    {
-        using var client = new HttpClient();
-        var response = await client.GetAsync("https://api.example.com/data");
-        response.EnsureSuccessStatusCode();
+	private string operation_response = "NA";
+	private int request_id = 0;
 
-        string result = await response.Content.ReadAsStringAsync();
-        payload = result;
-    }
+	private static HttpClient sharedClient = new()
+	{
+		//BaseAddress = new Uri("http://13.236.88.18/calcserve/"),
+		BaseAddress = new Uri("http://localhost:5086/"),
+	};
+
+	public async void onclickcalculator()
+	{
+		await FetchOperationResponse();
+		request_id++;
+	}
+
+	public async Task FetchOperationResponse()
+	{
+		//what are we requesting from the api?
+		var json = "{\"request_id\":" + request_id + "}";
+		var request_content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+		//await JS.InvokeVoidAsync("console.log", "request_content: " + json);
+
+		HttpResponseMessage response = await sharedClient.PostAsync(sharedClient.BaseAddress + "calculator/", request_content);
+
+		if (response.IsSuccessStatusCode)
+		{
+			string body = await response.Content.ReadAsStringAsync();
+			await JS.InvokeVoidAsync("console.log", body);
+			operation_response = body;
+
+			//force blazor to re-render the client so it doesnt lag behind in responses
+			StateHasChanged();
+		}
+		else
+		{
+			await JS.InvokeVoidAsync("console.error", response);
+		}
+	}
 }
